@@ -1,0 +1,12 @@
+{
+  "claude": {
+    "type": "script",
+    "command": "WINGBAR_CLAUDE_WARN=75 WINGBAR_CLAUDE_ALERT=90 WINGBAR_CLAUDE_PLAN=0 bash ~/.config/wingbar/widgets/claude/claude.sh",
+    "every": "60s",
+    "timeout": "20s",
+    "icon": "Claude",
+    "levels": { "ok": "orange" },
+    "click": "open 'https://claude.ai/settings/usage'",
+    "menuOn": "hover"
+  }
+}

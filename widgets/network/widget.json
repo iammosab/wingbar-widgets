@@ -1,0 +1,13 @@
+{
+  "network": {
+    "type": "script",
+    "command": "WINGBAR_NETWORK_WIFI_TTL=60 WINGBAR_NETWORK_WEAK_DBM=-75 WINGBAR_NETWORK_SPEED=0 WINGBAR_NETWORK_WIFI_TOGGLE=1 bash ~/.config/wingbar/widgets/network/network.sh",
+    "every": "10s",
+    "icon": "wifi",
+    "levels": {
+      "ok": "green",
+      "eth": { "color": "blue", "icon": "cable.connector" }
+    },
+    "menuOn": "hover"
+  }
+}

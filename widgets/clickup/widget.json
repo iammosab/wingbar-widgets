@@ -1,0 +1,12 @@
+{
+  "clickup": {
+    "type": "script",
+    "command": "WINGBAR_CLICKUP_TEAMS= WINGBAR_CLICKUP_START_TEAM= WINGBAR_CLICKUP_START_TASK= WINGBAR_CLICKUP_TARGET_HOURS=0 WINGBAR_CLICKUP_SHOW_TASK=0 bash ~/.config/wingbar/widgets/clickup/clickup.sh",
+    "every": "15s",
+    "timeout": "20s",
+    "icon": "ClickUp",
+    "levels": { "ok": "magenta", "done": "green" },
+    "rightClick": "bash ~/.config/wingbar/widgets/clickup/clickup_open.sh",
+    "menuOn": "hover"
+  }
+}

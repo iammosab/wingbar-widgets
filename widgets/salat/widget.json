@@ -1,0 +1,10 @@
+{
+  "salat": {
+    "type": "script",
+    "command": "WINGBAR_SALAT_CITY=Rabat WINGBAR_SALAT_WARN_MIN=15 bash ~/.config/wingbar/widgets/salat/salat.sh",
+    "every": "30s",
+    "icon": "moon.stars",
+    "levels": { "ok": "green" },
+    "menuOn": "hover"
+  }
+}

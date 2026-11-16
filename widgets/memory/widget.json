@@ -1,0 +1,11 @@
+{
+  "memory": {
+    "type": "script",
+    "command": "WINGBAR_MEMORY_TOP=6 WINGBAR_MEMORY_TOP_TTL=30 bash ~/.config/wingbar/widgets/memory/memory.sh",
+    "every": "5s",
+    "icon": "memorychip",
+    "levels": { "ok": "green" },
+    "click": "open -a 'Activity Monitor'",
+    "menuOn": "hover"
+  }
+}

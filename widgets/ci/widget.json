@@ -1,0 +1,16 @@
+{
+  "ci": {
+    "type": "script",
+    "command": "WINGBAR_CI_REPO=owner/repo WINGBAR_CI_BRANCH= bash ~/.config/wingbar/widgets/ci/ci.sh",
+    "every": "30s",
+    "timeout": "15s",
+    "icon": "GitHub",
+    "levels": {
+      "ok": { "color": "green", "icon": "GitHub" },
+      "warn": { "color": "yellow", "icon": "arrow.triangle.2.circlepath" },
+      "alert": { "color": "red", "icon": "xmark.octagon" },
+      "dim": { "color": "dim", "icon": "GitHub" }
+    },
+    "menuOn": "hover"
+  }
+}

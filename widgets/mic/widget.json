@@ -1,0 +1,15 @@
+{
+  "mic": {
+    "type": "script",
+    "command": "WINGBAR_MIC_HELPER=1 bash ~/.config/wingbar/widgets/mic/mic.sh",
+    "every": "5s",
+    "icon": "mic",
+    "iconOnly": true,
+    "levels": {
+      "ok": { "color": "green", "icon": "mic" },
+      "alert": { "icon": "mic.slash" }
+    },
+    "click": "WINGBAR_MIC_HELPER=1 bash ~/.config/wingbar/widgets/mic/mic.sh toggle",
+    "menuOn": "hover"
+  }
+}
