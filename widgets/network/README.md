@@ -6,14 +6,21 @@ How this Mac is online, with the details you'd otherwise dig out of System Setti
   `Ethernet` (optionally with its speed, `Ethernet · 1 Gb/s`), `VPN` when only a VPN is up,
   `Wi-Fi off` or `Offline`. Levels: `ok` on Wi-Fi, `warn` on Wi-Fi with a weak signal, `eth` on a
   wire (blue, cable icon), `dim` offline.
-- **Menu (hover):**
-  - every live connection, the one in use first (`●`) and the others marked standby (`○`), with
-    its interface and IP address, and the link speed for wired ones;
-  - Wi-Fi signal in words and numbers (`Signal: Good (-61 dBm, noise -92 dBm)`), link rate,
-    PHY mode and channel (`Link: 866 Mb/s · 802.11ac · ch 36 (5GHz, 80MHz)`), security;
-  - the router's address and connected VPNs (by their name in Network Settings);
-  - actions: *Copy IP Address* (to the clipboard), *Open Router Page* (`http://<router>` in your
-    browser), *Open Wi-Fi Settings*, *Open Network Settings*, *Turn Wi-Fi Off* / *On*.
+- **Menu (hover):** a panel in wingbar 0.4's menu styles:
+  - a header saying what is in use (`Network   Using Wi-Fi`, `Using Ethernet`, `VPN only`,
+    `Wi-Fi is off`, `Offline`);
+  - every live connection as a bold section, the one in use first: `Wi-Fi   <IP address>` or
+    `Ethernet   1 Gb/s` (its address on the next row). Clicking a connection copies its IP address
+    to the clipboard;
+  - under Wi-Fi: the network's name, the signal in words and numbers (`Signal   Good · -61 dBm`)
+    with a meter (green, `warn` below -67 dBm, `alert` below the weak setting), the noise, the
+    link (`866 Mb/s · 802.11ac · ch 36 (5GHz, 80MHz)`) and security; under each connection its
+    interface (and port name for wired ones), marked `standby` when it isn't the one in use;
+  - *Router* with its address (click: opens `http://<router>` in your browser) and connected VPNs
+    (by their name in Network Settings);
+  - buttons: *Network settings*, *Wi-Fi settings*, *Wi-Fi off* / *Wi-Fi on*.
+
+  In a macOS menu (`theme.menus: "native"`) the same lines show as plain items, without meters.
 
 Compared with wingbar's catalog `network` widget, this one adds the signal, link and channel
 readings, the router, VPN names, every live connection and the copy / router / Wi-Fi power
@@ -29,8 +36,9 @@ readings can be up to that old.
 
 ## Needs
 
-Nothing to install: `route`, `scutil`, `ipconfig`, `ifconfig`, `networksetup`,
-`system_profiler`, `pbcopy` and `awk` come with macOS.
+- wingbar 0.4 or later (for the menu's columns and meters).
+- Nothing to install: `route`, `scutil`, `ipconfig`, `ifconfig`, `networksetup`,
+  `system_profiler`, `pbcopy` and `awk` come with macOS.
 
 ## Install
 
@@ -46,7 +54,7 @@ Set as environment variables at the start of `command` in `widget.json`.
 | `WINGBAR_NETWORK_WIFI_TTL` | `60` | Seconds the Wi-Fi details are reused. `0` leaves them out and never runs `system_profiler`. |
 | `WINGBAR_NETWORK_WEAK_DBM` | `-75` | Signal (dBm) below which Wi-Fi turns `warn`. |
 | `WINGBAR_NETWORK_SPEED` | `0` | `1` adds a wired link's speed to the bar (`Ethernet · 1 Gb/s`). |
-| `WINGBAR_NETWORK_WIFI_TOGGLE` | `1` | `0` leaves *Turn Wi-Fi Off / On* out of the menu. |
+| `WINGBAR_NETWORK_WIFI_TOGGLE` | `1` | `0` leaves the *Wi-Fi off / on* button out of the menu. |
 | `WINGBAR_ROUTE`, `WINGBAR_NETWORKSETUP`, `WINGBAR_IPCONFIG`, `WINGBAR_IFCONFIG`, `WINGBAR_SCUTIL`, `WINGBAR_SYSTEM_PROFILER` | the command names | Tool paths (for testing). |
 
 ## Privacy
@@ -55,9 +63,9 @@ Set as environment variables at the start of `command` in `widget.json`.
   hardware port names, the router address, Wi-Fi power, the Wi-Fi network name (when macOS allows
   it), the current Wi-Fi link's signal, noise, rate, PHY mode, channel and security
   (`system_profiler`), and the names of connected VPN services (`scutil --nc list`).
-- **Sends:** nothing. It makes no network requests. *Open Router Page* opens your router's address
+- **Sends:** nothing. It makes no network requests. The *Router* row opens your router's address
   in your browser only when you choose it.
 - **Stores:** `${TMPDIR:-/tmp}/wingbar-network/wifi.txt`: the Wi-Fi interface name and the link's
   PHY mode, channel, security, signal / noise and rate, overwritten every 60 s. It does not store
   the network's name, the router or any address.
-- *Copy IP Address* puts this Mac's local IP address on the clipboard, only when you choose it.
+- Clicking a connection puts this Mac's local IP address on the clipboard, only when you choose it.

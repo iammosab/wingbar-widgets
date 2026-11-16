@@ -372,14 +372,20 @@ def action(title, *args):
     return f"menu: {title} | {env}bash {q(SCRIPT)} " + " ".join(q(a) for a in args)
 
 
+def buttons():
+    """The menu's last row: Refresh and the Habous site, side by side."""
+    emit(action("> Refresh", "refresh"))
+    emit(f"menu: > habous.gov.ma | open {q(HABOUS_PAGE)}")
+
+
 def fail(label, *lines):
     emit(f"dim|{label}")
     emit("icon: moon.stars")
+    emit("menu: # Salat")
     for line in lines:
         emit(f"menu: {clean(line)}")
     emit("menu: ---")
-    emit(action("Refresh", "refresh"))
-    emit(f"menu: Open habous.gov.ma | open {q(HABOUS_PAGE)}")
+    buttons()
 
 
 def clock():
@@ -441,29 +447,48 @@ def widget():
     elif icons == "sf":
         emit(f"icon: {SF[nxt_key]}")
 
-    emit(f"menu: {clean(name)} · {now:%a %-d %b}" + (f" ({clean(note)})" if note else ""))
-    emit("menu: ---")
-    done = ticks(today) if track else {}
-    for k in ORDER:
-        mark = "▸ " if k == nxt_key and not tomorrow else ("✓ " if k in done else "")
-        extra = f"  · in {countdown(mins)}" if mark == "▸ " else ""
-        emit(f"menu: {mark}{NAMES[k]}  {times[k]}{extra}")
+    # how far through the time between the previous prayer and the next one
     if tomorrow:
-        emit(f"menu: ▸ Fajr (tomorrow)  {nxt_at:%H:%M}  · in {countdown(mins)}")
+        prev_at = at(today, times["ishae"])
+    elif nxt_key == "fajr":
+        day0 = today - timedelta(days=1)
+        prev_at = at(day0, (times_for(day0, cid) or times)["ishae"])
+    else:
+        prev_at = at(today, times[ORDER[ORDER.index(nxt_key) - 1]])
+    span = (nxt_at - prev_at).total_seconds()
+    pct = round(100 * (now - prev_at).total_seconds() / span) if span > 0 else 0
+    pct = min(100, max(0, pct))
+
+    # Rich menu lines (wingbar 0.4): a TAB splits label and right-aligned value
+    emit(f"menu: # {clean(name)}\t{now:%a %-d %b}")
+    if note:
+        emit(f"menu: _ {clean(note)}")
+    done = ticks(today) if track else {}
+
+    def next_row(title, hhmm):
+        emit(f"menu: ## {title}\t{hhmm} · in {countdown(mins)}")
+        emit(f"menu: ~{pct} {level if level == 'warn' else 'green'}")
+
+    for k in ORDER:
+        if k == nxt_key and not tomorrow:
+            next_row(NAMES[k], times[k])
+        else:
+            emit(f"menu: {'✓ ' if k in done else ''}{NAMES[k]}\t{times[k]}")
+    if tomorrow:
+        next_row("Fajr (tomorrow)", f"{nxt_at:%H:%M}")
     emit("menu: ---")
     if track:
         started = [k for k in FIVE if at(today, times[k]) <= now]
         cur, cur_day = (started[-1], today) if started else ("ishae", today - timedelta(days=1))
         cur_done = ticks(cur_day).get(cur)
+        emit(f"menu: Prayed today\t{sum(1 for k in FIVE if k in done)}/5")
         if cur_done:
-            emit(f"menu: ✓ {NAMES[cur]} prayed at {cur_done}")
-            emit(action(f"Unmark {NAMES[cur]}", "unmark", cur, cur_day.isoformat()))
+            emit(action(f"Unmark {NAMES[cur]}\tprayed {cur_done}", "unmark", cur, cur_day.isoformat()))
         else:
             emit(action(f"Mark {NAMES[cur]} as prayed", "mark", cur, cur_day.isoformat()))
-        emit(f"menu: {sum(1 for k in FIVE if k in done)}/5 prayed today")
         emit("menu: ---")
-    emit(action("Refresh", "refresh"))
-    emit(f"menu: Open habous.gov.ma | open {q(HABOUS_PAGE)}")
+    emit("menu: _ Habous timetable · Moroccan time")
+    buttons()
 
 
 def refresh():

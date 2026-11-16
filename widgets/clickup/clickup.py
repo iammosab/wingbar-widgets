@@ -62,6 +62,12 @@ def clean(s, n=40):
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"
 
 
+def label(s, n=40):
+    """Text from ClickUp as the start of a menu line: cleaned, and without a leading
+    `#`, `_`, `>`, `~` or `-` that would make it a header, caption, button, meter or separator."""
+    return clean(s, n).lstrip("#_>~- ") or "No task"
+
+
 def quote(s):
     return "'" + s.replace("'", "'\\''") + "'"
 
@@ -243,24 +249,26 @@ def command(script):
     return (env + " " if env else "") + "bash " + quote(os.path.join(DIR, script))
 
 
-FIX = ["---", f"Open ClickUp | open {quote(APP)}"]
+FIX = ["---", f"> ClickUp | open {quote(APP)}"]
 
 
 def need_token():
-    done("dim|ClickUp", ["Set CLICKUP_TOKEN in ~/.config/wingbar/secrets.env",
-                         "Get a personal token in ClickUp: Settings > Apps",
-                         "---", f"Open ClickUp's Apps settings | open {quote(APP + 'settings/apps')}"])
+    done("dim|ClickUp", ["# ClickUp\tNo token", "Set CLICKUP_TOKEN in ~/.config/wingbar/secrets.env",
+                         "_ Get a personal token in ClickUp: Settings > Apps",
+                         "---", f"> Apps settings | open {quote(APP + 'settings/apps')}",
+                         f"> ClickUp | open {quote(APP)}"])
 
 
 def failed(e):
     if e.status == 401:
         if TEAMS and "orkspace" in str(e):  # "Workspace not authorized": a wrong team ID
-            done("dim|ClickUp: check teams", [f"ClickUp: {e}",
-                                              "Check WINGBAR_CLICKUP_TEAMS, or leave it empty"] + FIX)
-        done("dim|ClickUp: token rejected", ["ClickUp rejected CLICKUP_TOKEN" + (f" ({e})" if str(e) else ""),
-                                             "Check it in ~/.config/wingbar/secrets.env"] + FIX)
-    done("dim|ClickUp: offline", ["Couldn't reach ClickUp" + (f" ({e})" if e.status else ""),
-                                  "Tries again on the next run"] + FIX)
+            done("dim|ClickUp: check teams", ["# ClickUp\tCheck teams", f"ClickUp: {e}",
+                                              "_ Check WINGBAR_CLICKUP_TEAMS, or leave it empty"] + FIX)
+        done("dim|ClickUp: token rejected", ["# ClickUp\tToken rejected",
+                                             "ClickUp rejected CLICKUP_TOKEN" + (f" ({e})" if str(e) else ""),
+                                             "_ Check it in ~/.config/wingbar/secrets.env"] + FIX)
+    done("dim|ClickUp: offline", ["# ClickUp\tOffline", "Couldn't reach ClickUp" + (f" ({e})" if e.status else ""),
+                                  "_ Tries again on the next run"] + FIX)
 
 
 def widget():
@@ -270,7 +278,8 @@ def widget():
     try:
         team_ids = teams(tok)
         if not team_ids:
-            done("dim|ClickUp: no workspace", ["This token sees no ClickUp workspace"] + FIX)
+            done("dim|ClickUp: no workspace", ["# ClickUp\tNo workspace",
+                                               "This token sees no ClickUp workspace"] + FIX)
         _, cur = running(tok, team_ids)
         entries = today_entries(tok, team_ids, str(cur.get("id", "")) if cur else "")
     except ApiError as e:
@@ -300,27 +309,35 @@ def widget():
     else:
         print(f"{'done' if reached else 'dim'}|{total}")
 
-    menu = []
+    menu = [f"# ClickUp\tToday {total if TARGET else long(today)}"]
     if cur:
-        menu.append("▶ " + clean(name_of(cur)))
-        menu.append(f"Running for {hm(session)} (since {datetime.fromtimestamp(now - session):%H:%M})")
+        menu.append(f"▶ {label(name_of(cur), 34)}\t{hm(session)}")
+        menu.append(f"_ running since {datetime.fromtimestamp(now - session):%H:%M}")
     else:
         menu.append("No timer running")
-    menu.append(f"Today: {long(today)}" + (f" of {TARGET / 3600:g}h" if TARGET else ""))
+    menu.append(f"## Today\t{long(today)}" + (f" of {TARGET / 3600:g}h" if TARGET else ""))
+    if TARGET:
+        menu.append(f"~{min(100, round(today * 100 / TARGET))} {'green' if reached else 'magenta'}")
+        if reached:
+            menu.append("_ daily target reached")
+        else:
+            left = TARGET - today
+            menu.append(f"_ {long(left)} to go" + (f" · done at {datetime.fromtimestamp(now + left):%H:%M}"
+                                                   if cur else ""))
     top = sorted(((n, s) for n, s in per_task.items() if s >= 60), key=lambda kv: -kv[1])
-    if top:
-        menu.append("---")
-        menu += [f"{n}: {long(s)}" for n, s in top[:5]]
-        if len(top) > 5:
-            menu.append(f"{len(top) - 5} more: {long(sum(s for _, s in top[5:]))}")
+    menu += [f"{label(n)}\t{long(s)}" for n, s in top[:5]]
+    if len(top) > 5:
+        menu.append(f"{len(top) - 5} more\t{long(sum(s for _, s in top[5:]))}")
+    if not top:
+        menu.append("_ nothing tracked yet today")
     menu.append("---")
     if cur:
-        menu.append(f"Stop timer | {command('clickup_toggle.sh')}")
+        menu.append(f"> Stop timer | {command('clickup_toggle.sh')}")
         if url_of(cur):
-            menu.append(f"Open task | open {quote(url_of(cur))}")
+            menu.append(f"> Open task | open {quote(url_of(cur))}")
     else:
-        menu.append(f"Start timer | {command('clickup_toggle.sh')}")
-    menu.append(f"Open ClickUp | open {quote(APP)}")
+        menu.append(f"> Start timer | {command('clickup_toggle.sh')}")
+    menu.append(f"> ClickUp | open {quote(APP)}")
     for m in menu:
         print("menu: " + m)
 

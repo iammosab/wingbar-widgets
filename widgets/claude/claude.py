@@ -255,30 +255,59 @@ def limits(d):
     return rows
 
 
-def credits_line(d):
+# Meter colours: theme keys `warn` / `alert` match the bar's own levels.
+SEV_COLOR = {"critical": "alert", "warning": "warn"}
+
+
+def money(x):
+    try:
+        return f"${x['amount_minor'] / 10 ** x.get('exponent', 2):,.2f}"
+    except (TypeError, KeyError, ZeroDivisionError, AttributeError):
+        return ""
+
+
+def credits_rows(d):
+    """(menu lines for usage credits, whether they're on)."""
     sp = d.get("spend") if isinstance(d.get("spend"), dict) else {}
     if not sp.get("enabled"):
-        return "Usage credits: off"
-
-    def money(x):
-        try:
-            return f"${x['amount_minor'] / 10 ** x.get('exponent', 2):,.2f}"
-        except (TypeError, KeyError, ZeroDivisionError):
-            return ""
+        return ["Usage credits\toff"], False
     used, cap = money(sp.get("used")), money(sp.get("limit"))
-    return "Usage credits: " + (f"{used} of {cap}" if cap else used or "on")
+    rows = ["Usage credits\t" + (f"{used} of {cap}" if cap else used or "on")]
+    if cap and pct(sp.get("percent")) is not None:
+        rows.append(f"~{pct(sp['percent'])} {SEV_COLOR.get(sp.get('severity'), 'blue')}")
+    return rows, True
+
+
+def meter_color(p, severity):
+    """The stronger of the limit's own severity and its percentage against WARN / ALERT."""
+    if p >= ALERT or severity == "critical":
+        return "alert"
+    return "warn" if p >= WARN or severity == "warning" else "green"
+
+
+def ago(path):
+    secs = age(path)
+    if secs < 60:
+        return "updated just now"
+    if secs < 3600:
+        return f"updated {int(secs // 60)}m ago"
+    return "updated " + datetime.fromtimestamp(os.path.getmtime(path)).strftime("%H:%M")
 
 
 def main():
-    actions = ["---", f"Open usage page | open {quote(USAGE_PAGE)}"]
+    buttons = ["---", f"> Usage page | open {quote(USAGE_PAGE)}", f"> Refresh | rm -f {quote(USAGE)}"]
+
+    def problem(bar, subtitle, lines):
+        done(bar, [f"# Claude\t{subtitle}"] + lines + buttons)
+
     creds = credentials()
     if not creds:
-        done("dim|Claude: sign in", ["Not signed in to Claude Code",
-                                     "Run  claude  in a terminal and sign in"] + actions)
+        problem("dim|Claude: sign in", "Not signed in",
+                ["Not signed in to Claude Code", "_ Run  claude  in a terminal and sign in"])
     token, expires = creds
     if expires <= time.time() * 1000:
-        done("dim|Claude: login expired", ["Claude Code's login has expired",
-                                           "Use Claude Code once to renew it"] + actions)
+        problem("dim|Claude: login expired", "Login expired",
+                ["Claude Code's login has expired", "_ Use Claude Code once to renew it"])
 
     note = ""
     if age(USAGE) >= USAGE_TTL:
@@ -293,19 +322,19 @@ def main():
             write_private(USAGE, body)
         elif status == 401:
             forget_item()
-            done("dim|Claude: login expired", ["Claude Code's login was rejected",
-                                               "Run  claude  in a terminal and sign in again"] + actions)
+            problem("dim|Claude: login expired", "Login rejected",
+                    ["Claude Code's login was rejected", "_ Run  claude  in a terminal and sign in again"])
         elif age(USAGE) < STALE_OK:
-            note = "Couldn't reach Anthropic: showing " + \
+            note = "Couldn't reach Anthropic · showing " + \
                 datetime.fromtimestamp(os.path.getmtime(USAGE)).strftime("%H:%M")
         else:
             why = "rate limited" if status == 429 else "offline"
-            done(f"dim|Claude: {why}", ["Couldn't reach Anthropic's usage endpoint",
-                                        "Tries again on the next run"] + actions)
+            problem(f"dim|Claude: {why}", why.capitalize(),
+                    ["Couldn't reach Anthropic's usage endpoint", "_ Tries again on the next run"])
     d = load(USAGE) or {}
     rows = limits(d)
     if not rows:
-        done("dim|Claude", ["No usage data yet"] + actions)
+        problem("dim|Claude", "No data", ["No usage data yet"])
 
     plan = plan_name(token)
     worst = max(p for _, p, _, _ in rows)
@@ -314,17 +343,19 @@ def main():
         "warn" if worst >= WARN or "warning" in sev else "ok"
     print(f"{level}|{plan + ' · ' if SHOW_PLAN and plan else ''}{worst}%")
 
-    menu = [f"Claude {plan} plan" if plan else "Claude plan limits"]
-    for name, p, reset, _ in rows:
-        menu.append(f"{name}: {p}%" + (f" · {when(reset)}" if when(reset) else ""))
-    menu.append(credits_line(d))
+    menu = [f"# Claude\t{plan} plan" if plan else "# Claude\tPlan limits"]
+    for name, p, reset, severity in rows:
+        menu.append(f"{name}\t{p}%")
+        menu.append(f"~{min(p, 100)} {meter_color(p, severity)}")
+        if when(reset):
+            menu.append("_ " + when(reset))
+    credit_lines, credits_on = credits_rows(d)
+    menu += credit_lines
     if worst >= 100:
-        menu.append("Limit reached" + (": now using usage credits" if "credits: off" not in menu[-1]
-                                       else ": turn on usage credits to keep going"))
-    if note:
-        menu.append(note)
-    menu += actions
-    menu.append(f"Refresh now | rm -f {quote(USAGE)}")
+        menu.append("_ Limit reached: " + ("now using usage credits" if credits_on
+                                           else "turn on usage credits to keep going"))
+    menu.append("_ " + (note or ago(USAGE)))
+    menu += buttons
     for m in menu:
         print("menu: " + m)
 

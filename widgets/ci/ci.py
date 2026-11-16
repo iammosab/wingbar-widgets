@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """GitHub Actions widget for wingbar (called by ci.sh, which checks the settings and tools).
 
-Prints wingbar's script protocol: line 1 `level|label`, then `menu:` lines.
+Prints wingbar's script protocol: line 1 `level|label`, then `menu:` lines in wingbar 0.4's styles
+(`# header`, `## section`, label<TAB>value, `~N colour` meter, `_ caption`, `> button`). Only this
+file adds TABs; GitHub's text goes through clean() (no `|`, TAB or other control characters).
   ok    newest finished run passed       "CI ✓ 7/8" (today's passed/finished runs)
   warn  a run is in progress or queued   "CI ▶ Tests +1"
   alert newest finished run failed       "CI ✗ Tests"
@@ -14,6 +16,8 @@ is shown with a "?" after the label. gh handles authentication; no token is read
 import json
 import os
 import re
+import shlex
+import statistics
 import subprocess
 import sys
 import time
@@ -57,7 +61,8 @@ URL_RE = re.compile(r"https://[A-Za-z0-9.-]+(:[0-9]+)?/[A-Za-z0-9._~/%-]*")
 # ── helpers ───────────────────────────────────────────────────────────────────
 def clean(s, n=None):
     """Text GitHub controls, made safe for a menu title: no `|`, no control characters."""
-    s = "".join(c for c in str(s or "") if c != "|" and unicodedata.category(c) not in ("Cc", "Cf", "Zl", "Zp"))
+    s = "".join(" " if c == "|" or unicodedata.category(c) in ("Cc", "Zl", "Zp") else c
+                for c in str(s or "") if unicodedata.category(c) != "Cf")
     s = " ".join(s.split())
     if n and len(s) > n:
         s = s[: n - 1].rstrip() + "…"
@@ -281,8 +286,9 @@ def today_stats(runs):
     return len(day), ok, len(real)
 
 
-def run_line(r, now):
-    wf = clean(r.get("workflowName") or r.get("name") or "run", 24)
+def run_row(r, now):
+    """(label, value) of a run: mark, workflow and branch (or PR/commit title); its duration."""
+    wf = clean(r.get("workflowName") or r.get("name") or "run", 28)
     who = r.get("displayTitle") if (BRANCH or r.get("event") == "pull_request") else r.get("headBranch")
     if who and clean(who) == clean(r.get("workflowName") or r.get("name")):
         who = r.get("event")  # scheduled runs are titled with the workflow's name
@@ -294,12 +300,61 @@ def run_line(r, now):
         d = dur(now - start) if start else "–"
     else:
         d = "queued"
-    return f"{mark(r)} {wf} · {clean(who, 40)} · {d}" if who else f"{mark(r)} {wf} · {d}"
+    label = f"{mark(r)} {wf} · {clean(who)}" if who else f"{mark(r)} {wf}"
+    return clean(label, 42), d
 
 
-def menu(title, url=None):
+def medians(runs):
+    """[(workflow, median seconds)] of today's finished runs, busiest workflows first (at most 2)."""
+    today = datetime.now().astimezone().date()
+    by = {}
+    for r in runs:
+        t, a, b = ts(r.get("createdAt")), ts(r.get("startedAt") or r.get("createdAt")), ts(r.get("updatedAt"))
+        if (t and a and b and b >= a and datetime.fromtimestamp(t).date() == today
+                and r.get("status") == "completed" and r.get("conclusion") not in NEUTRAL):
+            by.setdefault(r.get("workflowName") or r.get("name") or "run", []).append(b - a)
+    busiest = sorted(by.items(), key=lambda kv: -len(kv[1]))[:2]
+    return [(wf, statistics.median(ds)) for wf, ds in busiest]
+
+
+def lead(s):
+    """GitHub's text at the start of a title, without what would make it a header, button, meter…"""
+    return s.lstrip("#>~_- ") or "?"
+
+
+def row(label, value=None, url=None):
+    """A menu line: label, an optional right-hand value (after a TAB, only added here), a link."""
+    title = f"{label}\t{value}" if value else label
     cmd = open_cmd(url) if url else None
     return f"menu: {title} | {cmd}" if cmd else f"menu: {title}"
+
+
+def button(title, cmd):
+    return f"menu: > {title} | {cmd}"
+
+
+def refresh_cmd():
+    """Forget the cached answers (and failures), so the refresh wingbar does after a click fetches again."""
+    files = [f"{KEY}.{k}{fail}.json" for k in gh_args() for fail in ("", ".fail")]
+    return f"cd {shlex.quote(CACHE)} && rm -f " + " ".join(shlex.quote(f) for f in files)
+
+
+def buttons():
+    out = ["menu: ---", button("Actions", open_cmd(f"{BASE}/actions"))]
+    if PR_LIMIT:
+        out.append(button("Pull requests", open_cmd(f"{BASE}/pulls")))
+    if RUNNERS:
+        out.append(button("Runners", open_cmd(f"{BASE}/settings/actions/runners")))
+    out.append(button("Refresh", refresh_cmd()))
+    return out
+
+
+def where():
+    return clean(f"{REPO} · {BRANCH}" if BRANCH else REPO, 40)
+
+
+def updated(age):
+    return "updated just now" if age < 5 else f"updated {ago(age)} ago"
 
 
 def main():
@@ -313,97 +368,109 @@ def main():
         reason = why(runs_r["err"] or "no data yet")
         short = "gh not logged in" if "not logged in" in reason else "repo?" if reason.startswith("Repo not") else "?"
         print(f"dim|CI {short}")
-        print(menu(clean(REPO)))
-        print(menu(reason))
-        print("menu: ---")
-        print(menu("Open Actions", f"{BASE}/actions"))
+        print(row(f"# CI · {where()}", "no data"))
+        print(row(lead(reason)))
+        print("menu: _ Refresh tries again now")
+        print("\n".join(buttons()))
         return
 
     if not isinstance(runs, list):
         runs = []
     active = [r for r in runs if r.get("status") in ACTIVE]
+    running = [r for r in active if r.get("status") == "in_progress"]
     done = [r for r in runs if r.get("status") == "completed" and r.get("conclusion") not in NEUTRAL]
     last = done[0] if done else None
     n_day, n_ok, n_real = today_stats(runs)
     stale = "?" if runs_r["err"] else ""
 
-    # line 1
-    running = [r for r in active if r.get("status") == "in_progress"]
+    # line 1, and the header's status
     if running:
         more = f" +{len(active) - 1}" if len(active) > 1 else ""
         head = f"warn|CI ▶ {clean(running[0].get('workflowName') or running[0].get('name'), 14)}{more}"
+        status = "running"
     elif active:
         head = f"warn|CI ◌ {len(active)} queued"
+        status = "queued"
     elif last and last.get("conclusion") != "success":
         head = f"alert|CI ✗ {clean(last.get('workflowName') or last.get('name'), 14)}"
+        status = "failing"
     elif last:
         head = f"ok|CI ✓ {n_ok}/{n_real}" if n_real else "ok|CI ✓"
+        status = "passing"
     else:
         head = "dim|CI –"
+        status = "no runs"
     lines.append(head + stale)
 
-    # readings
-    lines.append(menu(clean(f"{REPO} · {BRANCH}" if BRANCH else REPO)))
+    lines.append(row(f"# CI · {clean(REPO, 32)}", f"{clean(BRANCH, 20)} · {status}" if BRANCH else status))
     if runs_r["err"]:
-        lines.append(menu(f"{why(runs_r['err'])}; showing data from {ago(runs_r['age'])} ago"))
-    if n_day:
-        plus = "+" if n_day >= len(runs) == FETCH else ""
-        rate = f" · {n_ok}/{n_real} passed ({round(100 * n_ok / n_real)}%)" if n_real else ""
-        lines.append(menu(f"Today: {n_day}{plus} run{'' if n_day == 1 else 's'}{rate}"))
-    else:
-        lines.append(menu("Today: no runs"))
-    if active:
-        lines.append(menu(f"Running: {len(running)} · queued: {len(active) - len(running)}"))
+        lines.append(f"menu: _ {why(runs_r['err'])} · showing data from {ago(runs_r['age'])} ago")
 
     if RUNNERS:
         rr = got["runners"]
+        url = f"{BASE}/settings/actions/runners"
         if rr["data"] is None:
             e = (rr["err"] or "").lower()
-            lines.append(menu("Runners: needs admin access to the repo" if "403" in e or "permission" in e
-                              else f"Runners: {why(rr['err'] or 'no data')}"))
+            lines.append(row("Runners", "needs admin access" if "403" in e or "permission" in e
+                             else clean(why(rr["err"] or "no data"), 40)))
         else:
             rs = rr["data"] if isinstance(rr["data"], list) else []
             on = [x for x in rs if x.get("status") == "online"]
             busy = sum(1 for x in on if x.get("busy"))
             off = [x for x in rs if x.get("status") != "online"]
             if not rs:
-                lines.append(menu("Runners: no self-hosted runners"))
+                lines.append(row("Runners", "no self-hosted runners"))
+            elif len(rs) == 1:
+                lines.append(row("Runner", f"{'online' if on else 'offline'}"
+                                           f"{(' · busy' if busy else ' · idle') if on else ''}", url))
             else:
-                lines.append(menu(f"Runners: {len(on)} online ({busy} busy) · {len(off)} offline",
-                                  f"{BASE}/settings/actions/runners"))
-                for x in off[:3]:
-                    lines.append(menu(f"  offline: {clean(x.get('name'), 30)}"))
+                parts = [f"{len(on)} online", f"{busy} busy" if busy else "idle"] + ([f"{len(off)} offline"] if off else [])
+                lines.append(row("Runners", " · ".join(parts), url))
+                if off:
+                    lines.append(row("Offline", clean(", ".join(clean(x.get("name")) for x in off), 36)))
+    if active:
+        q = len(active) - len(running)
+        lines.append(row("In progress", " · ".join(x for x in (f"{len(running)} running" if running else "",
+                                                               f"{q} queued" if q else "") if x)))
+
+    # today
+    plus = "+" if n_day >= len(runs) == FETCH else ""
+    lines.append(row("## Today", f"{n_day}{plus} run{'' if n_day == 1 else 's'}" if n_day else "no runs"))
+    if n_real:
+        rate = round(100 * n_ok / n_real)
+        lines.append(row("Passed", f"{n_ok}/{n_real} · {rate}%"))
+        lines.append(f"menu: ~{rate} {'green' if n_ok == n_real else 'warn' if rate >= 80 else 'alert'}")
+    for wf, d in medians(runs):
+        lines.append(row(f"{lead(clean(wf, 28))} median", dur(d)))
 
     # recent runs
     if runs:
-        lines.append("menu: ---")
-        lines.append(menu("Recent runs"))
+        lines.append(row("## Recent", None, f"{BASE}/actions"))
         for r in runs[:LIMIT]:
-            lines.append(menu(run_line(r, now), r.get("url")))
+            label, d = run_row(r, now)
+            lines.append(row(label, d, r.get("url")))
     else:
-        lines.append(menu("No workflow runs yet"))
+        lines.append(row("No workflow runs yet"))
 
     # open PRs
     if PR_LIMIT:
         pr = got["prs"]
         prs = pr["data"] if isinstance(pr["data"], list) else None
-        lines.append("menu: ---")
         if prs is None:
-            lines.append(menu(f"Pull requests: {why(pr['err'] or 'no data')}"))
-        elif not prs:
-            lines.append(menu("No open pull requests"))
+            lines.append(row("## Open PRs", "?", f"{BASE}/pulls"))
+            lines.append(f"menu: _ {why(pr['err'] or 'no data')}")
         else:
-            lines.append(menu(f"Open pull requests ({len(prs)}{'+' if len(prs) >= PR_LIMIT else ''})"))
+            n = f"{len(prs)}{'+' if len(prs) >= PR_LIMIT else ''}" if prs else "none"
+            lines.append(row("## Open PRs", n, f"{BASE}/pulls"))
             for p in prs[:PR_LIMIT]:
                 state = rollup(p.get("checks") or [])
                 m = {"passing": "✓", "failing": "✗", "pending": "◌"}.get(state, "·")
-                draft = " (draft)" if p.get("isDraft") else ""
-                lines.append(menu(f"{m} #{p.get('number')} {clean(p.get('title'), 40)}{draft} · {state}", p.get("url")))
+                value = f"draft · {state}" if p.get("isDraft") else state
+                lines.append(row(f"{m} #{p.get('number')} {clean(p.get('title'), 34)}", value, p.get("url")))
 
-    # actions
-    lines.append("menu: ---")
-    lines.append(menu("Open Actions", f"{BASE}/actions"))
-    lines.append(menu("Open Pull Requests", f"{BASE}/pulls"))
+    # footer
+    lines.append(f"menu: _ {updated(runs_r['age'])} · click a row to open")
+    lines += buttons()
 
     print("\n".join(lines[:60]))
 
@@ -413,5 +480,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:  # never fail noisily in the bar
         print("dim|CI ?")
-        print(menu(f"Widget error: {clean(type(e).__name__)}"))
+        print(row(f"Widget error: {clean(type(e).__name__)}"))
     sys.exit(0)

@@ -2,8 +2,9 @@
 # wingbar widget: mic
 #
 # Line 1: whether the microphone is muted ("On" / "Muted"), with icon "mic" or
-# "mic.slash". Menu: the input device, its input volume, how it is muted, a
-# Mute / Unmute action and "Open Sound Input Settings".
+# "mic.slash". Menu (wingbar 0.4 styles: columns, a meter, captions, buttons):
+# a header, the input device, its input volume with a meter, how it is muted,
+# and Mute / Unmute and "Sound settings" buttons.
 #
 # `mic.sh toggle` mutes or unmutes (the click action and the menu action).
 #
@@ -28,7 +29,10 @@ SAVED="$CACHE/volume"
 SRC="$DIR/mic_control.swift"
 BIN="$CACHE/mic_control"
 
+# text we don't control (the device name) loses "|" (it would start a command)
+# and control characters, TAB included (it would make a column)
 plain() { printf '%s' "$1" | tr -d '|[:cntrl:]'; }
+SOUND_SETTINGS="open 'x-apple.systempreferences:com.apple.Sound-Settings.extension?input'"
 
 # The helper, compiled when missing or older than its source. A failed build is
 # remembered (for that source) so it is not retried on every run.
@@ -114,35 +118,40 @@ if [ -z "$VOLUME" ] && [ "$CAN_MUTE" = 0 ] && [ "$HW_MUTED" = 0 ]; then
 	# neither a volume nor a mute switch we can use: muted or not can't be told
 	echo "dim|No level"
 	echo "icon: mic"
-	[ -n "$HELPER" ] && echo "menu: Input: ${DEVICE:-none}"
-	echo "menu: This input has no volume or mute switch macOS can set"
-	[ -z "$HELPER" ] && [ "$USE_HELPER" = 1 ] && echo "menu: The Xcode Command Line Tools add mute-switch support"
-	echo "menu: ---"
-	echo "menu: Open Sound Input Settings | open 'x-apple.systempreferences:com.apple.Sound-Settings.extension?input'"
+	printf 'menu: # Microphone\tNo level\n'
+	[ -n "$HELPER" ] && printf 'menu: Input\t%s\n' "${DEVICE:-none}"
+	echo "menu: _ This input has no volume or mute switch macOS can set."
+	[ -z "$HELPER" ] && [ "$USE_HELPER" = 1 ] && echo "menu: _ The Xcode Command Line Tools add mute-switch support."
+	echo "menu: > Sound settings | $SOUND_SETTINGS"
 	exit 0
 fi
 
 if [ "$MUTED" = 1 ]; then
 	echo "alert|Muted"
 	echo "icon: mic.slash"
+	printf 'menu: # Microphone\tMuted\n'
 else
 	echo "ok|On"
 	echo "icon: mic"
+	printf 'menu: # Microphone\tOn\n'
 fi
-[ -n "$HELPER" ] && echo "menu: Input: ${DEVICE:-none}"
-[ -n "$VOLUME" ] && echo "menu: Input volume: $VOLUME%"
+[ -n "$HELPER" ] && printf 'menu: Input\t%s\n' "${DEVICE:-none}"
+if [ -n "$VOLUME" ]; then
+	printf 'menu: Input volume\t%s%%\n' "$VOLUME"
+	# dim while muted by the switch (the volume is kept but not heard)
+	if [ "$MUTED" = 1 ]; then echo "menu: ~$VOLUME dim"; else echo "menu: ~$VOLUME green"; fi
+fi
 if [ "$HW_MUTED" = 1 ]; then
-	echo "menu: Muted with the device's mute switch"
+	echo "menu: _ Muted with the device's mute switch."
 elif [ "$VOLUME" = 0 ]; then
-	echo "menu: Muted with input volume 0"
+	echo "menu: _ Muted with input volume 0."
 fi
-[ -z "$HELPER" ] && [ "$USE_HELPER" = 1 ] && echo "menu: Mutes by volume (no swiftc for the mute helper)"
+[ -z "$HELPER" ] && [ "$USE_HELPER" = 1 ] && echo "menu: _ Mutes by volume (no swiftc for the mute helper)."
 
 ME=$(printf '%q' "$DIR/mic.sh")
-echo "menu: ---"
 if [ "$MUTED" = 1 ]; then
-	echo "menu: Unmute Microphone | bash $ME toggle"
+	echo "menu: > Unmute | bash $ME toggle"
 else
-	echo "menu: Mute Microphone | bash $ME toggle"
+	echo "menu: > Mute | bash $ME toggle"
 fi
-echo "menu: Open Sound Input Settings | open 'x-apple.systempreferences:com.apple.Sound-Settings.extension?input'"
+echo "menu: > Sound settings | $SOUND_SETTINGS"

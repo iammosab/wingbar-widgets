@@ -3,10 +3,12 @@
 #
 # Line 1: how this Mac is online, following the default route: the Wi-Fi
 # network's name (or "Wi-Fi" when macOS hides it), "Ethernet", or "Offline".
-# Menu: every live connection with its address (the one in use first), Wi-Fi
-# signal, link rate, PHY mode, channel and security, the router, connected
-# VPNs, and actions: copy the IP address, open the router's page, open Wi-Fi /
-# Network Settings, turn Wi-Fi off or on.
+# Menu (wingbar 0.4 styles: columns, meters, captions, buttons): a header
+# saying what is in use, then each live connection as a section (the one in use
+# first; clicking it copies its IP address) with its details: the Wi-Fi network,
+# signal with a meter, noise, link rate, PHY mode and channel, security,
+# interface. Then the router (opens its page) and connected VPNs, and buttons:
+# Network / Wi-Fi settings, Wi-Fi off or on.
 #
 # Wi-Fi details come from `system_profiler SPAirPortDataType` (2-3 s), so they
 # are cached for WINGBAR_NETWORK_WIFI_TTL seconds in ${TMPDIR:-/tmp}/wingbar-network/.
@@ -37,18 +39,20 @@ NETWORK_SETTINGS="open 'x-apple.systempreferences:com.apple.Network-Settings.ext
 WIFI_SETTINGS="open 'x-apple.systempreferences:com.apple.wifi-settings-extension'"
 
 # Text we don't control (network, port and VPN names) loses "|" (it would end
-# a menu title and start a command) and control characters.
+# a menu title and start a command) and control characters, TAB included (it
+# would split a menu line into columns).
 plain() { printf '%s' "$1" | tr -d '|[:cntrl:]'; }
 # An IPv4 address, or nothing (addresses go into commands: only digits and dots).
 ipv4() { printf '%s' "$1" | awk '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ { print; exit }'; }
 addr() { ipv4 "$("$IPCONFIG" getifaddr "$1" 2>/dev/null)"; }
 
 # "device<TAB>port name" lines ("en0	Wi-Fi")
-PORTS=$("$NETWORKSETUP" -listallhardwareports 2>/dev/null | tr -d '|' | tr -d '\001-\010\013-\037\177' | awk '
+PORTS=$("$NETWORKSETUP" -listallhardwareports 2>/dev/null | tr -d '|' | tr -d '\001-\011\013-\037\177' | awk '
 	/^Hardware Port: / { sub(/^Hardware Port: /, ""); port = $0 }
 	/^Device: / { if (port != "") print $2 "\t" port; port = "" }')
 port_of() { printf '%s\n' "$PORTS" | awk -F '\t' -v d="$1" '$1 == d { print $2; exit }'; }
 WIFI_DEV=$(printf '%s\n' "$PORTS" | awk -F '\t' '$2 == "Wi-Fi" || $2 == "AirPort" { print $1; exit }')
+case $WIFI_DEV in *[!A-Za-z0-9]*) WIFI_DEV="" ;; esac
 
 WIFI_ON=0
 if [ -n "$WIFI_DEV" ] && "$NETWORKSETUP" -getairportpower "$WIFI_DEV" 2>/dev/null | grep -q ': On$'; then
@@ -71,7 +75,7 @@ done
 LINKS=${LINKS# }
 
 # Connected VPN services (scutil --nc), by name.
-VPNS=$("$SCUTIL" --nc list 2>/dev/null | awk '/\(Connected\)/ { if (match($0, /"[^"]*"/)) print substr($0, RSTART + 1, RLENGTH - 2) }' | tr -d '|' | tr -d '\001-\010\013-\037\177')
+VPNS=$("$SCUTIL" --nc list 2>/dev/null | awk '/\(Connected\)/ { if (match($0, /"[^"]*"/)) print substr($0, RSTART + 1, RLENGTH - 2) }' | tr -d '|' | tr -d '\001-\011\013-\037\177')
 
 # The connection in use: the default route's interface, or (under a VPN that
 # takes the default route) the first live hardware connection.
@@ -83,30 +87,35 @@ elif [ -n "$DEFAULT" ]; then
 	[ -n "$VPNS" ] || VPNS=$DEFAULT
 fi
 
-tail_actions() {
-	echo "menu: ---"
-	[ -n "$WIFI_DEV" ] && echo "menu: Open Wi-Fi Settings | $WIFI_SETTINGS"
-	echo "menu: Open Network Settings | $NETWORK_SETTINGS"
+# The buttons at the bottom; adjacent buttons share one row.
+buttons() {
+	echo "menu: > Network settings | $NETWORK_SETTINGS"
+	[ -n "$WIFI_DEV" ] && echo "menu: > Wi-Fi settings | $WIFI_SETTINGS"
 	if [ "$TOGGLE" = 1 ] && [ -n "$WIFI_DEV" ]; then
 		if [ "$WIFI_ON" = 1 ]; then
-			echo "menu: Turn Wi-Fi Off | networksetup -setairportpower '$WIFI_DEV' off"
+			echo "menu: > Wi-Fi off | networksetup -setairportpower '$WIFI_DEV' off"
 		else
-			echo "menu: Turn Wi-Fi On | networksetup -setairportpower '$WIFI_DEV' on"
+			echo "menu: > Wi-Fi on | networksetup -setairportpower '$WIFI_DEV' on"
 		fi
 	fi
 }
+vpn_rows() { printf '%s\n' "$VPNS" | awk 'NF { printf "menu: VPN\t%s\n", $0 }'; }
 
 if [ -z "$PRIMARY" ]; then
 	if [ -n "$DEFAULT" ]; then
 		echo "ok|VPN"
+		SUB="VPN only"
 	elif [ -n "$WIFI_DEV" ] && [ "$WIFI_ON" = 0 ]; then
 		echo "dim|Wi-Fi off"
+		SUB="Wi-Fi is off"
 	else
 		echo "dim|Offline"
+		SUB="Offline"
 	fi
-	[ -z "$DEFAULT" ] && echo "menu: No connection"
-	printf '%s\n' "$VPNS" | awk 'NF { print "menu: VPN: " $0 }'
-	tail_actions
+	printf 'menu: # Network\t%s\n' "$SUB"
+	[ -z "$DEFAULT" ] && echo "menu: _ No connection."
+	vpn_rows
+	buttons
 	exit 0
 fi
 
@@ -137,7 +146,7 @@ wifi_details() {
 				else if (k == "Security") print "security=" v
 				else if (k == "Signal / Noise") print "signal=" v
 				else if (k == "Transmit Rate") print "rate=" v
-			}' | tr -d '|' | tr -d '\001-\010\013-\037\177' >"$tmp"
+			}' | tr -d '|' | tr -d '\001-\011\013-\037\177' >"$tmp"
 		echo "dev=$WIFI_DEV" >>"$tmp"
 		mv -f "$tmp" "$WIFI_TXT" 2>/dev/null || rm -f "$tmp"
 	fi
@@ -191,47 +200,67 @@ else
 	echo "eth|Ethernet${S:+ · $S}"
 fi
 
-# ── menu: connections ───────────────────────────────────────────────────────
-for dev in $LINKS; do
-	ip=$(addr "$dev")
-	mark="○"
-	[ "$dev" = "$PRIMARY" ] && mark="●"
-	if [ "$dev" = "$WIFI_DEV" ]; then
-		name="Wi-Fi${SSID:+ $SSID}"
-		extra=""
-	else
-		name=$(plain "$(port_of "$dev")")
-		extra=$(speed "$dev")
-	fi
-	standby=""
-	[ "$dev" = "$PRIMARY" ] || standby="standby"
-	printf 'menu: %s %s (%s): %s%s%s\n' "$mark" "$name" "$dev" "$ip" "${extra:+ · $extra}" "${standby:+ · $standby}"
-done
-
-if [ "$WIFI_LIVE" = 1 ]; then
-	if [ -n "$RSSI" ]; then
-		echo "menu: Signal: $QUALITY ($RSSI dBm${NOISE:+, noise $NOISE dBm})"
-	fi
-	RATE=$(field rate)
-	PHY=$(field phy)
-	CHANNEL=$(field channel)
-	LINK=""
-	case $RATE in '' | *[!0-9.]*) ;; *) LINK="$RATE Mb/s" ;; esac
-	[ -n "$PHY" ] && LINK="${LINK:+$LINK · }$PHY"
-	[ -n "$CHANNEL" ] && LINK="${LINK:+$LINK · }ch $CHANNEL"
-	[ -n "$LINK" ] && echo "menu: Link: $LINK"
-	SEC=$(field security)
-	[ -n "$SEC" ] && echo "menu: Security: $SEC"
-	[ -z "$SSID" ] && echo "menu: Wi-Fi name hidden by macOS (Location Services)"
+# ── menu ────────────────────────────────────────────────────────────────────
+if [ "$PRIMARY" = "$WIFI_DEV" ]; then
+	printf 'menu: # Network\tUsing Wi-Fi\n'
+else
+	printf 'menu: # Network\tUsing Ethernet\n'
 fi
 
-ROUTER=$(ipv4 "$("$IPCONFIG" getoption "$PRIMARY" router 2>/dev/null)")
-[ -n "$ROUTER" ] && echo "menu: Router: $ROUTER"
-printf '%s\n' "$VPNS" | awk 'NF { print "menu: VPN: " $0 }'
+# each live connection, the one in use first: a section (click: copy its IP)
+# and its details
+SEEN=""
+for dev in $PRIMARY $LINKS; do
+	case " $LINKS " in *" $dev "*) ;; *) continue ;; esac
+	case " $SEEN " in *" $dev "*) continue ;; esac
+	SEEN="$SEEN $dev"
+	ip=$(addr "$dev")
+	standby=""
+	[ "$dev" = "$PRIMARY" ] || standby=" · standby"
+	copy=""
+	[ -n "$ip" ] && copy=" | printf %s '$ip' | pbcopy"
+	if [ "$dev" = "$WIFI_DEV" ]; then
+		printf 'menu: ## Wi-Fi\t%s%s\n' "$ip" "$copy"
+		if [ -n "$SSID" ]; then
+			printf 'menu: Network\t%s\n' "$SSID"
+		else
+			printf 'menu: Network\thidden\n'
+		fi
+		if [ -n "$RSSI" ]; then
+			printf 'menu: Signal\t%s · %s dBm\n' "$QUALITY" "$RSSI"
+			awk -v r="$RSSI" -v weak="$WEAK" 'BEGIN {
+				q = (r + 90) * 100 / 60; if (q < 0) q = 0; if (q > 100) q = 100
+				c = (r < weak) ? "alert" : (r < -67) ? "warn" : "green"
+				printf "menu: ~%d %s\n", q, c
+			}'
+			[ -n "$NOISE" ] && printf 'menu: Noise\t%s dBm\n' "$NOISE"
+		fi
+		RATE=$(field rate)
+		PHY=$(field phy)
+		CHANNEL=$(field channel)
+		LINK=""
+		case $RATE in '' | *[!0-9.]*) ;; *) LINK="$RATE Mb/s" ;; esac
+		[ -n "$PHY" ] && LINK="${LINK:+$LINK · }$PHY"
+		[ -n "$CHANNEL" ] && LINK="${LINK:+$LINK · }ch $CHANNEL"
+		[ -n "$LINK" ] && printf 'menu: Link\t%s\n' "$LINK"
+		SEC=$(field security)
+		[ -n "$SEC" ] && printf 'menu: Security\t%s\n' "$SEC"
+		printf 'menu: Interface\t%s%s\n' "$dev" "$standby"
+	else
+		rate=$(speed "$dev")
+		printf 'menu: ## Ethernet\t%s%s\n' "${rate:-$ip}" "$copy"
+		[ -n "$rate" ] && [ -n "$ip" ] && printf 'menu: Address\t%s\n' "$ip"
+		printf 'menu: Interface\t%s · %s%s\n' "$dev" "$(plain "$(port_of "$dev")")" "$standby"
+	fi
+done
 
-# ── menu: actions ───────────────────────────────────────────────────────────
-IP=$(addr "$PRIMARY")
-echo "menu: ---"
-[ -n "$IP" ] && echo "menu: Copy IP Address | printf %s '$IP' | pbcopy"
-[ -n "$ROUTER" ] && echo "menu: Open Router Page | open 'http://$ROUTER'"
-tail_actions | tail -n +2
+ROUTER=$(ipv4 "$("$IPCONFIG" getoption "$PRIMARY" router 2>/dev/null)")
+if [ -n "$ROUTER" ] || [ -n "$VPNS" ]; then
+	echo "menu: ---"
+	[ -n "$ROUTER" ] && printf "menu: Router\t%s | open 'http://%s'\n" "$ROUTER" "$ROUTER"
+	vpn_rows
+fi
+
+[ "$WIFI_LIVE" = 1 ] && [ -z "$SSID" ] && echo "menu: _ Wi-Fi name hidden by macOS (Location Services)."
+[ -n "$(addr "$PRIMARY")" ] && echo "menu: _ Click a connection to copy its IP."
+buttons

@@ -16,17 +16,26 @@ also be Sunrise, which ends Fajr's time.
 
 ## Menu (on hover)
 
-- The city and today's date.
-- Today's six times: Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha. The next one is marked `▸` with its
-  countdown; after Isha, tomorrow's Fajr is added.
-- With `WINGBAR_SALAT_TRACK=1`: **Mark *Asr* as prayed** for the prayer whose time is running
-  (before Fajr, last night's Isha). Marked prayers get a `✓`, a "prayed at 15:20" line and
-  **Unmark**, plus "2/5 prayed today".
-- **Refresh**: download the timetable again on the next run (the copy you have stays until the
-  download works). **Open habous.gov.ma**.
+A panel in wingbar's rich menu style:
+
+- A header: the city on the left, today's date on the right (`Rabat    Mon 16 Nov`). With `auto`,
+  a caption under it says when the city is a fallback.
+- Today's six times in two columns: Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha. The next one is a
+  bold row with its countdown (`Asr    15:03 · in 1h05m`) and a meter under it showing how far
+  through the time from the previous prayer to the next one it is; the meter turns `warn` with the
+  label. After Isha, tomorrow's Fajr is added as the next row.
+- With `WINGBAR_SALAT_TRACK=1`: prayers you marked get a `✓`, then "Prayed today  2/5" and
+  **Mark *Asr* as prayed** for the prayer whose time is running (before Fajr, last night's Isha);
+  once marked, **Unmark Asr** with the time you marked it.
+- A caption with the source: "Habous timetable · Moroccan time".
+- Two buttons side by side: **Refresh** (download the timetable again on the next run; the copy you
+  have stays until the download works) and **habous.gov.ma** (opens the site).
+
+With `theme.menus: "native"` the same lines show as a plain macOS menu (columns joined, no meter).
 
 ## Needs
 
+- wingbar 0.4 or later (for the menu's columns and meters).
 - `python3`: comes with the Xcode Command Line Tools (`xcode-select --install`). Without them the
   widget shows `Salat: needs python3` and offers to install them.
 - `curl` (part of macOS).

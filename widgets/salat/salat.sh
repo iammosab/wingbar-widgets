@@ -10,9 +10,10 @@
 #   warn   WINGBAR_SALAT_WARN_MIN minutes or less before it
 #   dim    offline with nothing cached, unknown city, python3 missing
 #
-# Menu: the city and date, today's six times (the next one marked), then
-# "Mark <prayer> as prayed" with WINGBAR_SALAT_TRACK=1, "Refresh" and
-# "Open habous.gov.ma".
+# Menu (wingbar 0.4 rich lines): a city/date header, today's six times in
+# two columns (the next one bold, with its countdown and a meter of the time
+# since the previous prayer), "Mark <prayer> as prayed" with
+# WINGBAR_SALAT_TRACK=1, a source caption, and Refresh / habous.gov.ma buttons.
 #
 # Settings (environment, all optional; see README.md):
 #   WINGBAR_SALAT_CITY      city name, Habous city id, or "auto" (IP location)  [Rabat]

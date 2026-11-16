@@ -5,8 +5,28 @@ Your ClickUp time tracking: the running timer and how much you've tracked today.
 - **Bar:** with a timer running, its elapsed time and today's total (`0:42 · 3.4h`, or with the
   task name in front when `WINGBAR_CLICKUP_SHOW_TASK=1`); with none, today's total, dimmed
   (`3.4h`). With a daily target set it shows `3.4/7h` and turns `done` (green) once you reach it.
-- **Menu (hover):** the running task and since when, today's total, today's time per task (the top
-  five), then *Stop timer* / *Start timer*, *Open task* (while a timer runs) and *Open ClickUp*.
+- **Menu (hover):** a panel headed *ClickUp* with today's total (`Today 3h 53m`, or `Today 3.4/7h`
+  with a daily target). While a timer runs, its task and elapsed time (`▶ Design review   0:43`)
+  with a caption saying since when. Then a *Today* section with the total and, with a target, a
+  meter toward it and how long is left (`3h 07m to go · done at 17:40` while a timer runs, or
+  `daily target reached`), followed by today's time per task (the top five, then `N more`).
+  Buttons at the bottom: *Stop timer* / *Start timer*, *Open task* (while a timer runs) and
+  *ClickUp*. Task names are shortened and cleaned (no `|`, tabs or control characters, and no
+  leading `#`, `_`, `>`, `~` or `-` that would restyle the line).
+
+  ```text
+  ClickUp                Today 3.9/7h
+  ▶ Design review                0:43
+  running since 09:58
+  Today                   3h 53m of 7h
+  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬────────────────
+  3h 07m to go · done at 17:40
+  Write release notes          1h 30m
+  Design review                1h 28m
+  Fix login bug                   55m
+  ───────────────────────────────────
+   Stop timer │ Open task │ ClickUp
+  ```
 - **Right-click:** opens the running timer's task (or ClickUp). ⌥-right-click still opens
   wingbar's own menu. Remove `rightClick` from the entry if you'd rather have wingbar's menu there.
 
@@ -17,6 +37,7 @@ Without a token the bar shows a dimmed `ClickUp` and the menu says how to add on
 
 ## Needs
 
+- wingbar 0.4 or later (for the menu's columns and meters).
 - A ClickUp personal API token: ClickUp > Settings > Apps > API Token (it starts with `pk_`).
   Put it in `~/.config/wingbar/secrets.env` (create the file, `chmod 600` it, keep it out of any
   repository):

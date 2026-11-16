@@ -3,9 +3,10 @@
 #
 # Line 1: the share of RAM in use, counted as Activity Monitor does
 # (app memory + wired + compressed), coloured by macOS's memory pressure.
-# Menu: pressure, used of total, the app / wired / compressed split, swap,
-# the apps using the most memory (helpers counted with their app) and
-# "Open Activity Monitor".
+# Menu (wingbar 0.4 styles: columns, meters, captions, a button): pressure and
+# total, used with a meter, the app / wired / compressed split, swap, the apps
+# using the most memory (helpers counted with their app) each with a meter of
+# its share of RAM, and an "Activity Monitor" button.
 #
 # Line 1 comes from vm_stat and sysctl (a few milliseconds). The app list needs
 # `top -l 1` (about a second), so it is cached for WINGBAR_MEMORY_TOP_TTL
@@ -33,7 +34,8 @@ APPS="$CACHE/top-apps.txt"
 TOTAL=$("$SYSCTL" -n hw.memsize 2>/dev/null | tr -d '[:space:]')
 case $TOTAL in '' | *[!0-9]* | 0)
 	echo "dim|RAM ?"
-	echo "menu: Memory unavailable (sysctl hw.memsize failed)"
+	printf 'menu: # Memory\tUnavailable\n'
+	echo "menu: _ sysctl hw.memsize failed"
 	exit 0
 	;;
 esac
@@ -57,7 +59,8 @@ $("$VM_STAT" 2>/dev/null | awk '
 EOF
 case "$APP$WIRED$COMP" in '' | *[!0-9]*)
 	echo "dim|RAM ?"
-	echo "menu: Memory unavailable (vm_stat failed)"
+	printf 'menu: # Memory\tUnavailable\n'
+	echo "menu: _ vm_stat failed"
 	exit 0
 	;;
 esac
@@ -68,14 +71,19 @@ case $LEVEL in
 *) PRESSURE=normal L=ok ;;
 esac
 
-awk -v t="$TOTAL" -v a="$APP" -v w="$WIRED" -v c="$COMP" -v s="${SWAP:-0}" -v l="$L" -v p="$PRESSURE" 'BEGIN {
+# the meter's colour follows the pressure, like the bar's level
+case $L in ok) MC=green ;; *) MC=$L ;; esac
+awk -v t="$TOTAL" -v a="$APP" -v w="$WIRED" -v c="$COMP" -v s="${SWAP:-0}" -v l="$L" -v p="$PRESSURE" -v mc="$MC" 'BEGIN {
 	g = 1024 * 1024 * 1024
 	u = a + w + c; if (u > t) u = t
-	printf "%s|%d%%\n", l, (u * 100 / t) + 0.5
-	printf "menu: Pressure: %s\n", p
-	printf "menu: Used: %.1f of %.0f GB (%d%%)\n", u / g, t / g, (u * 100 / t) + 0.5
-	printf "menu: App %.1f · Wired %.1f · Compressed %.1f GB\n", a / g, w / g, c / g
-	if (s + 0 > 0) printf "menu: Swap: %.1f GB used\n", s / 1024
+	pct = int((u * 100 / t) + 0.5)
+	printf "%s|%d%%\n", l, pct
+	printf "menu: # Memory\tPressure %s · %.0f GB\n", p, t / g
+	printf "menu: Used\t%.1f GB · %d%%\n", u / g, pct
+	printf "menu: ~%d %s\n", pct, mc
+	printf "menu: Breakdown\t%.0f · %.0f · %.0f GB\n", a / g, w / g, c / g
+	printf "menu: _ app · wired · compressed\n"
+	if (s + 0 > 0) printf "menu: Swap\t%.1f GB\n", s / 1024
 }'
 
 # ── top apps: cached ────────────────────────────────────────────────────────
@@ -134,18 +142,26 @@ refresh_apps() {
 	trap - EXIT
 }
 
+# Each app: a row (memory on the right; it opens Activity Monitor) and a meter
+# of its share of RAM, the colours taking turns.
 if [ "$TOP_N" -gt 0 ]; then
 	fresh || refresh_apps
+	echo "menu: ---"
 	if [ -s "$APPS" ]; then
-		echo "menu: ---"
-		echo "menu: Top apps"
-		head -n "$TOP_N" "$APPS" | awk -F '\t' '{
-			b = $1; n = substr($2, 1, 28)
-			if (b >= 1073741824) printf "menu: %s  %.1f GB\n", n, b / 1073741824
-			else printf "menu: %s  %.0f MB\n", n, b / 1048576
-		}'
+		head -n "$TOP_N" "$APPS" | awk -F '\t' -v t="$TOTAL" '
+			BEGIN { split("red orange yellow green blue", col, " ") }
+			{
+				b = $1; n = substr($2, 1, 28)
+				if (b >= 1073741824) v = sprintf("%.1f GB", b / 1073741824)
+				else v = sprintf("%.0f MB", b / 1048576)
+				printf "menu: %s\t%s | open -a %sActivity Monitor%s\n", n, v, "\047", "\047"
+				share = b * 100 / t; if (share > 100) share = 100
+				printf "menu: ~%.1f %s\n", share, col[(NR - 1) % 5 + 1]
+			}'
+		echo "menu: _ Top apps by memory, helpers included."
+	else
+		echo "menu: _ App list unavailable."
 	fi
 fi
 
-echo "menu: ---"
-echo "menu: Open Activity Monitor | open -a 'Activity Monitor'"
+echo "menu: > Activity Monitor | open -a 'Activity Monitor'"

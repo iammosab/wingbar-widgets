@@ -4,8 +4,12 @@ Whether the microphone is muted, with a mute switch that works on more devices.
 
 - **Bar:** an icon: `mic` (green) when live, `mic.slash` when muted. With `iconOnly` off the label
   shows too (`On` / `Muted`).
-- **Menu (hover):** the input device, its input volume, how it is muted (the device's mute switch,
-  or input volume 0), *Mute Microphone* / *Unmute Microphone*, and *Open Sound Input Settings*.
+- **Menu (hover):** a panel in wingbar 0.4's menu styles: a header (`Microphone   On` or
+  `Muted`), the input device (`Input   <device>`), the input volume with a meter
+  (`Input volume   60%`; green when live, dim when muted), a caption saying how it is muted (the
+  device's mute switch, or input volume 0), and *Mute* / *Unmute* and *Sound settings* buttons.
+  In a macOS menu (`theme.menus: "native"`) the same lines show as plain items, without the
+  meter.
 - **Click:** mutes or unmutes.
 
 **How it mutes.** wingbar's catalog `mic` widget mutes by setting the input volume to 0, which
@@ -25,6 +29,7 @@ helper is rebuilt after one.
 
 ## Needs
 
+- wingbar 0.4 or later (for the menu's columns and meters).
 - `osascript` (comes with macOS).
 - For the mute switch: the Xcode Command Line Tools (`xcode-select --install`) or Xcode, which
   provide `swiftc`. Optional: without them the widget mutes by volume.

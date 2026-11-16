@@ -16,14 +16,28 @@ old) is shown.
 
 ## Menu
 
-- The repo (and branch), today's runs and pass rate, running/queued counts.
-- The most recent runs: `✓`/`✗`/`▶`/`◌`/`–`, workflow, branch (or PR title), duration. Click to
-  open the run.
-- Open pull requests with their check state (passing, failing, pending). Click to open the PR.
-- Open Actions, Open Pull Requests.
-- Optional: a self-hosted runner reading (online / busy / offline), see `WINGBAR_CI_RUNNERS`.
+A panel in columns, labels on the left and values on the right:
+
+- **CI · owner/repo**, with the branch and the state on the right (passing, failing, running,
+  queued). If GitHub can't be reached, a line under it says why and how old the data is.
+- Optional: **Runner(s)**, online / busy / idle / offline, and the offline ones by name (see
+  `WINGBAR_CI_RUNNERS`). Click to open the repo's runner settings.
+- **In progress**: how many runs are running and queued (only while there are some).
+- **Today**: the number of runs, **Passed** `7/8 · 88%` with a meter (green when all passed,
+  your theme's `warn` colour from 80%, `alert` below), and the median time of the two busiest
+  workflows.
+- **Recent**: the latest runs, `✓`/`✗`/`▶`/`◌`/`–` with workflow and branch (or PR/commit title) on
+  the left, the duration on the right. Click a run to open it, or the section to open Actions.
+- **Open PRs**: each with its check state on the right (passing, failing, pending, draft). Click
+  to open the PR, or the section to open the pull request list.
+- When it was updated, then buttons: **Actions**, **Pull requests**, **Runners** (with
+  `WINGBAR_CI_RUNNERS`) and **Refresh** (forgets the cached answers so GitHub is asked again now).
+
+With `theme.menus: "native"` the same lines show as a plain macOS menu, without the meter.
 
 ## Needs
+
+- wingbar 0.4 or later (for the menu's columns and meters).
 
 - [`gh`](https://cli.github.com) (the GitHub CLI), logged in: `brew install gh`, then
   `gh auth login`. Private repositories work when your `gh` account can read them.

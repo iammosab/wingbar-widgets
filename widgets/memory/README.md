@@ -5,10 +5,18 @@ RAM in use, counted the way Activity Monitor counts it, with the apps using the 
 - **Bar:** the share of RAM in use, e.g. `62%` (app memory + wired + compressed, as Activity
   Monitor's "Memory Used"). The colour follows macOS's memory pressure, the same signal as
   Activity Monitor's pressure graph: `ok` when normal, `warn` at warning, `alert` at critical.
-- **Menu (hover):** pressure, used of total (`Used: 9.9 of 16 GB (62%)`), the app / wired /
-  compressed split, swap in use (when there is any), the top apps by memory (a browser's or an
-  editor's helper processes are added to their app, so each app appears once), and
-  *Open Activity Monitor*.
+- **Menu (hover):** a panel in wingbar 0.4's menu styles:
+  - a header with the pressure and the RAM size (`Memory   Pressure normal · 16 GB`);
+  - *Used* with a meter coloured by pressure (green, `warn`, `alert`): `Used   9.9 GB · 62%`;
+  - *Breakdown* (`6 · 2 · 2 GB`, captioned *app · wired · compressed*) and *Swap* (when any is
+    in use);
+  - the top apps by memory, each a row with its memory on the right and a meter of its share of
+    RAM (colours taking turns: red, orange, yellow, green, blue); a browser's or an editor's
+    helper processes are added to their app, so each app appears once. Clicking an app opens
+    Activity Monitor;
+  - an *Activity Monitor* button.
+
+  In a macOS menu (`theme.menus: "native"`) the same lines show as plain items, without meters.
 - **Click:** opens Activity Monitor.
 
 It replaces wingbar's built-in `memory` widget (same key) with one that has a menu. The bar
@@ -17,7 +25,8 @@ which takes about a second, so it is cached for 30 s: most runs don't start `top
 
 ## Needs
 
-Nothing to install: `vm_stat`, `sysctl`, `top`, `ps` and `awk` come with macOS.
+- wingbar 0.4 or later (for the menu's columns and meters).
+- Nothing to install: `vm_stat`, `sysctl`, `top`, `ps` and `awk` come with macOS.
 
 ## Install
 
