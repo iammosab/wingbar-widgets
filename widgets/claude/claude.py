@@ -26,6 +26,8 @@ ITEM = os.path.join(CACHE, "keychain_item")
 USAGE_TTL = 60          # seconds: manual refreshes don't hit the API
 STALE_OK = 3600         # show a cached reply this old when the API can't be reached
 PROFILE_TTL = 86400
+OFFERS = os.path.join(CACHE, "offers.json")
+OFFERS_TTL = 600        # free limit resets and bonus offers: checked every 10 minutes
 
 
 def setting(name, default):
@@ -38,6 +40,9 @@ def setting(name, default):
 WARN = setting("WINGBAR_CLAUDE_WARN", 75)
 ALERT = setting("WINGBAR_CLAUDE_ALERT", 90)
 SHOW_PLAN = os.environ.get("WINGBAR_CLAUDE_PLAN", "0") == "1"
+# Free limit resets and bonus offers: Anthropic answers these only to Claude Code,
+# so these two requests say they are Claude Code (opt-in; see the README).
+SHOW_OFFERS = os.environ.get("WINGBAR_CLAUDE_OFFERS", "0") == "1"
 
 
 def clean(s):
@@ -167,14 +172,101 @@ def forget_item():
 
 # ── API ──────────────────────────────────────────────────────────────────────
 
-def get(path, token):
+def get(path, token, ua=None):
     """(http status, body). The token reaches curl on stdin, not in its arguments."""
     config = (f'header = "Authorization: Bearer {token}"\n'
               'header = "anthropic-beta: oauth-2025-04-20"\n')
+    if ua:
+        config += f'user-agent = "{ua}"\n'
     code, out = run([CURL, "-sS", "--max-time", "8", "-K", "-", "-w", "\n%{http_code}", API + path],
                     stdin=config, timeout=12)
     body, _, status = out.rpartition("\n")
     return (int(status) if status.isdigit() else 0), body
+
+
+def claude_code_ua():
+    """The User-Agent of the Claude Code installed here (as Claude Code sends it)."""
+    d = os.path.expanduser("~/.local/share/claude/versions")
+    try:
+        vs = [v for v in os.listdir(d) if re.fullmatch(r"\d+(\.\d+)*", v)]
+    except OSError:
+        vs = []
+    ver = max(vs, key=lambda v: tuple(int(x) for x in v.split(".")), default="2.1.0")
+    return f"claude-cli/{ver} (external, cli)"
+
+
+def offers(token):
+    """{"resets": …, "offer": …}: free limit resets and bonus offers, as Claude Code's
+    /limit-reset and limit menu read them. Cached for OFFERS_TTL; {} when unknown."""
+    if age(OFFERS) >= OFFERS_TTL:
+        ua, got = claude_code_ua(), {}
+        for key, q in (("resets", "cedar_ember=1"), ("offer", "starry_waterfall=cli_menu")):
+            status, body = get(f"/usage?{q}&skip_spend=1", token, ua)
+            try:
+                v = json.loads(body).get(q.split("=")[0]) if status == 200 else None
+            except (ValueError, AttributeError):
+                v = None
+            if v is not None:
+                got[key] = v
+        if got:
+            write_private(OFFERS, json.dumps(got))
+        elif os.path.exists(OFFERS):
+            os.utime(OFFERS)  # keep the last answer; ask again in OFFERS_TTL
+    return load(OFFERS) or {}
+
+
+def offer_rows(o):
+    """Menu lines for resets and offers, and whether a free reset is waiting."""
+    def until(g):
+        for k in ("ends_at", "expires_at", "use_by", "expiresAt", "valid_until", "available_until"):
+            if g.get(k):
+                try:
+                    dt = datetime.fromisoformat(str(g[k]).replace("Z", "+00:00")).astimezone()
+                except ValueError:
+                    return ""
+                return "use by " + dt.strftime("%-d %b" if dt.year == datetime.now().year else "%-d %b %Y")
+        return ""
+    out, waiting = [], False
+    rs = o.get("resets") if isinstance(o.get("resets"), dict) else {}
+    grants = [g for g in (rs.get("grants") or []) if isinstance(g, dict)] if rs else []
+    page = f" | open {quote(USAGE_PAGE)}"
+
+    def left(g):
+        n = g.get("resets_left")
+        return n if isinstance(n, int) else 1  # older replies list only usable grants
+
+    usable = [g for g in grants if left(g) > 0 and g.get("usable_now", True)]
+    later = [g for g in grants if left(g) > 0 and not g.get("usable_now", True)]
+    used = sum(1 for g in grants if left(g) <= 0)
+    if usable:
+        waiting = True
+        n = sum(left(g) for g in usable)
+        out.append(f"## Limit resets\t{n} available{page}")
+        for g in usable:
+            name = clean(str(g.get("label") or g.get("kind") or g.get("type") or "Limit reset").replace("_", " "))
+            if len(name) > 44:
+                name = name[:43].rstrip() + "…"
+            out.append(f"{name}\t{until(g).replace('use by ', '') or 'now'}{page}")
+        out.append("_ use one with /limit-reset in Claude Code")
+    elif rs:
+        out.append("Limit resets\tnone")
+        if rs.get("cooldown_until") and when(str(rs["cooldown_until"])):
+            out.append("_ next " + when(str(rs["cooldown_until"])).replace("resets ", ""))
+    if later or used:
+        bits = [f"{len(later)} not usable yet"] if later else []
+        bits += [f"{used} used"] if used else []
+        out.append("_ " + " · ".join(bits))
+    of = o.get("offer") if isinstance(o.get("offer"), dict) else {}
+    if of.get("active") or of.get("eligible"):
+        what = clean(str(of.get("kind") or "offer").replace("_", " "))
+        val = f"+{of['headline_pct']}%" if str(of.get("headline_pct") or "").isdigit() else "available"
+        out.append(f"## Bonus · {what}\t{val}{page}")
+        note = f"{of['days_left']} days left" if str(of.get("days_left") or "").isdigit() else until(of)
+        if note:
+            out.append("_ " + note)
+    elif of:
+        out.append("Bonus offer\tnone")
+    return out, waiting
 
 
 def load(path):
@@ -295,7 +387,7 @@ def ago(path):
 
 
 def main():
-    buttons = ["---", f"> Usage page | open {quote(USAGE_PAGE)}", f"> Refresh | rm -f {quote(USAGE)}"]
+    buttons = ["---", f"> Usage page | open {quote(USAGE_PAGE)}", f"> Refresh | rm -f {quote(USAGE)} {quote(OFFERS)}"]
 
     def problem(bar, subtitle, lines):
         done(bar, [f"# Claude\t{subtitle}"] + lines + buttons)
@@ -341,7 +433,8 @@ def main():
     sev = {s for *_, s in rows}
     level = "alert" if worst >= ALERT or "critical" in sev else \
         "warn" if worst >= WARN or "warning" in sev else "ok"
-    print(f"{level}|{plan + ' · ' if SHOW_PLAN and plan else ''}{worst}%")
+    extra, waiting = offer_rows(offers(token)) if SHOW_OFFERS else ([], False)
+    print(f"{level}|{plan + ' · ' if SHOW_PLAN and plan else ''}{worst}%{' ↺' if waiting else ''}")
 
     menu = [f"# Claude\t{plan} plan" if plan else "# Claude\tPlan limits"]
     for name, p, reset, severity in rows:
@@ -351,6 +444,7 @@ def main():
             menu.append("_ " + when(reset))
     credit_lines, credits_on = credits_rows(d)
     menu += credit_lines
+    menu += extra
     if worst >= 100:
         menu.append("_ Limit reached: " + ("now using usage credits" if credits_on
                                            else "turn on usage credits to keep going"))

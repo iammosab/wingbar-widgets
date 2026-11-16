@@ -10,7 +10,8 @@ Your Claude plan usage, the same numbers Claude Code's `/usage` shows.
   right, a meter coloured by level (green, `warn` from 75 %, `alert` from 90 %, or earlier when
   Anthropic marks the limit warning / critical) and a caption with when it resets
   (`resets in 2h 06m`, `resets Fri 10:21`). Then usage credits (spent of the cap, with a meter when
-  there is a cap), a note when a limit is reached, when the numbers were fetched
+  there is a cap); with `WINGBAR_CLAUDE_OFFERS=1` your *Limit resets* (how many can be used, each
+  with its use-by date) and any bonus offer; a note when a limit is reached, when the numbers were fetched
   (`updated 1m ago`, or that the last reply is shown because Anthropic couldn't be reached), and
   two buttons: *Usage page* and *Refresh*. When signed out or offline the panel says why and how to
   fix it, with the same buttons.
@@ -56,6 +57,7 @@ Set as environment variables at the start of `command` in `widget.json`.
 | `WINGBAR_CLAUDE_WARN` | `75` | Percentage at which the widget turns `warn`. |
 | `WINGBAR_CLAUDE_ALERT` | `90` | Percentage at which the widget turns `alert`. |
 | `WINGBAR_CLAUDE_PLAN` | `0` | `1` puts the plan name before the percentage (`Max · 25%`). |
+| `WINGBAR_CLAUDE_OFFERS` | `0` | `1` also checks for free limit resets and bonus offers (what Claude Code's `/limit-reset` shows): the bar gets a `↺` while a reset can be used, and the menu a *Limit resets* section with each one and its use-by date. See Privacy: these requests say they are Claude Code. |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Where Claude Code keeps its credentials file, if it uses one instead of the Keychain. |
 | `WINGBAR_PYTHON3`, `WINGBAR_SECURITY`, `WINGBAR_CURL` | `python3`, `security`, `curl` | Tool paths (for testing). |
 
@@ -79,8 +81,13 @@ with a note.
   to `curl` on its standard input, so it never appears in a process list. These are the
   **undocumented** endpoints Claude Code itself uses for `/usage`; Anthropic may change or remove
   them at any time, and the widget will then show `Claude: offline` or no data until it is updated.
+  With `WINGBAR_CLAUDE_OFFERS=1`, also `GET …/oauth/usage?cedar_ember=1&skip_spend=1` and
+  `…?starry_waterfall=cli_menu&skip_spend=1` every 10 minutes. Anthropic answers these only to Claude
+  Code, so these two requests send Claude Code's User-Agent (`claude-cli/<the version installed here>`):
+  they identify as Claude Code. That's why it's off unless you turn it on.
 - **Stores:** only in `${TMPDIR:-/tmp}/wingbar-claude/` (folder `0700`, files `0600`):
-  `usage.json` (the usage reply: percentages and reset times), `profile.json` (just the plan name;
+  `usage.json` (the usage reply: percentages and reset times), `offers.json` (with offers on: your
+  limit resets and bonus offers, their labels and dates), `profile.json` (just the plan name;
   the rest of the profile, such as your email, is discarded) and `keychain_item` (the service and
   account *names* of the Keychain item that worked, so the next run reads only that one). The token
   itself is never written anywhere. Nothing else is written; delete the folder at any time.

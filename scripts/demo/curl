@@ -3,6 +3,8 @@ url=""; for a in "$@"; do case "$a" in http*) url=$a ;; esac; done
 cat >/dev/null # the token config on stdin
 now=$(date +%s); later() { date -u -r $((now + $1)) +%Y-%m-%dT%H:%M:%S.000000+00:00; }
 case "$url" in
+*/api/oauth/usage\?cedar_ember*) printf '{"cedar_ember":{"eligible":true,"grants":[{"label":"Free limit reset","type":"weekly","resets_left":1,"resets_total":1,"usable_now":true,"ends_at":"%s"}]}}' "$(later 2400000)" ;;
+*/api/oauth/usage\?starry_waterfall*) printf '{"starry_waterfall":{"active":false,"eligible":false}}' ;;
 */api/oauth/usage) printf '{"five_hour":{"utilization":38,"resets_at":"%s"},"seven_day":{"utilization":21,"resets_at":"%s"},"seven_day_opus":{"utilization":9,"resets_at":"%s"}}' "$(later 7600)" "$(later 300000)" "$(later 300000)" ;;
 */api/oauth/profile) printf '{"organization":{"organization_type":"claude_max"}}' ;;
 */team) printf '{"teams":[{"id":"1001","name":"Demo"}]}' ;;
