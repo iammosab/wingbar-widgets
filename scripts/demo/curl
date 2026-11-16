@@ -1,0 +1,13 @@
+#!/bin/bash
+url=""; for a in "$@"; do case "$a" in http*) url=$a ;; esac; done
+cat >/dev/null # the token config on stdin
+now=$(date +%s); later() { date -u -r $((now + $1)) +%Y-%m-%dT%H:%M:%S.000000+00:00; }
+case "$url" in
+*/api/oauth/usage) printf '{"five_hour":{"utilization":38,"resets_at":"%s"},"seven_day":{"utilization":21,"resets_at":"%s"},"seven_day_opus":{"utilization":9,"resets_at":"%s"}}' "$(later 7600)" "$(later 300000)" "$(later 300000)" ;;
+*/api/oauth/profile) printf '{"organization":{"organization_type":"claude_max"}}' ;;
+*/team) printf '{"teams":[{"id":"1001","name":"Demo"}]}' ;;
+*/time_entries/current) printf '{"data":{"id":"77","start":"%s000","task":{"id":"t1","name":"Design review","url":"https://app.clickup.com/"}}}' $((now - 2580)) ;;
+*/time_entries\?*) s=$(( $(date -j -f %H:%M 09:10 +%s) )); printf '{"data":[{"id":"1","start":"%s000","duration":"5400000","task":{"name":"Write release notes"}},{"id":"2","start":"%s000","duration":"3300000","task":{"name":"Fix login bug"}},{"id":"3","start":"%s000","duration":"2700000","task":{"name":"Design review"}}]}' $s $((s+6000)) $((s+10000)) ;;
+*) printf '{}' ; printf '\n404'; exit 0 ;;
+esac
+printf '\n200'

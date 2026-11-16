@@ -4,7 +4,10 @@ Widgets for [wingbar](https://github.com/iammosab/wingbar), the light native mac
 Each one is a small script with a hover menu that wingbar draws in the bar's own colours, hanging
 from the wing.
 
-![Hovering the CI, prayer-times and microphone widgets opens their menus under the bar](docs/menus.gif)
+![Hovering each widget opens its menu under the bar: CI, Claude, ClickUp, memory, network, mic, prayer times](docs/menus.gif)
+
+*All seven, on [demo data](scripts/demo): `scripts/demo/config.sh DIR` writes a wingbar
+settings file that runs every widget on made-up answers, for trying the menus without accounts.*
 
 | Widget | Shows | Menu | Needs |
 |---|---|---|---|

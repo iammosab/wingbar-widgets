@@ -20,14 +20,14 @@ for d in widgets/*/; do
   grep -q '^## Privacy' "$d/README.md" || { echo "no Privacy section: $d/README.md"; fail=1; }
 done
 
-leak() { # label, extended regex
+leak() { # label, extended regex[, path to skip]
   local hits
-  hits=$(printf '%s\n' "$files" | xargs grep -n -I -i -E "$2" 2>/dev/null)
+  hits=$(printf '%s\n' "$files" | grep -v -E "${3:-^$}" | xargs grep -n -I -i -E "$2" 2>/dev/null)
   [ -n "$hits" ] && { echo "possible $1:"; printf '%s\n' "$hits" | head -5; fail=1; }
 }
 leak "home path" '/Users/[A-Za-z]|/home/[a-z]'
 leak "email" '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}'
-leak "private IP" '\b(10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+)\b'
+leak "private IP" '\b(10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+)\b' '^(\./)?scripts/demo/' # demo addresses are made up
 leak "MAC address" '\b([0-9a-f]{2}:){5}[0-9a-f]{2}\b'
 leak "token" '(ghp_|gho_|ghs_|github_pat_|sk-ant-|xox[abp]-|pk_[0-9]{4,}_|AKIA[0-9A-Z]{12})'
 if [ -s .leakwords ]; then

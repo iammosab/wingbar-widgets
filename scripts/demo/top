@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "PID    MEM"
+echo "501    3412M"; echo "502    2210M"; echo "503    1806M"; echo "504    1290M"; echo "505    880M"; echo "506    610M"

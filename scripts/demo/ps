@@ -1,0 +1,4 @@
+#!/bin/sh
+printf '%s\n' "501 /Applications/Xcode.app/Contents/MacOS/Xcode" "502 /Applications/Safari.app/Contents/MacOS/Safari" \
+  "503 /Applications/Figma.app/Contents/MacOS/Figma" "504 /Applications/Slack.app/Contents/MacOS/Slack" \
+  "505 /System/Applications/Mail.app/Contents/MacOS/Mail" "506 /Applications/Spotify.app/Contents/MacOS/Spotify"

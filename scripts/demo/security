@@ -1,0 +1,6 @@
+#!/bin/bash
+case "$1" in
+dump-keychain) printf 'keychain: "x"\n    "acct"<blob>="demo"\n    "svce"<blob>="Claude Code-credentials"\n' ;;
+find-generic-password) printf '{"claudeAiOauth":{"accessToken":"demo-token","expiresAt":%s000}}\n' $(( $(date +%s) + 86400 )) ;;
+*) exit 1 ;;
+esac

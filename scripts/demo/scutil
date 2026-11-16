@@ -1,0 +1,2 @@
+#!/bin/sh
+case "$1" in --nwi) printf 'Network interfaces: en0\n' ;; *) exit 0 ;; esac

@@ -1,0 +1,2 @@
+#!/bin/sh
+printf '   route to: default\n  interface: en0\n'
