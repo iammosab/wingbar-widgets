@@ -1,0 +1,10 @@
+#!/bin/sh
+# Made-up AeroSpace workspaces: 1 (Safari), 2 focused (Xcode, Terminal), 3 (Slack), 4 (Music).
+case "$*" in
+list-workspaces*--focused*) echo "2|true|1" ;;
+list-workspaces*) printf '1|false|1\n2|true|1\n3|false|1\n4|false|1\n' ;;
+"list-windows --all"*) printf '1|Safari\n2|Xcode\n2|Terminal\n3|Slack\n4|Music\n' ;;
+list-windows*) echo "Xcode|Demo" ;;
+list-modes*) echo main ;;
+*) exit 0 ;;
+esac

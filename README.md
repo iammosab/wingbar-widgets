@@ -6,8 +6,10 @@ from the wing.
 
 ![Hovering each widget opens its menu under the bar: CI, Claude, ClickUp, memory, network, mic, prayer times](docs/menus.gif)
 
-*All seven, on [demo data](scripts/demo): `scripts/demo/config.sh DIR` writes a wingbar
-settings file that runs every widget on made-up answers, for trying the menus without accounts.*
+*Both wings, as a real setup has them (workspaces, ClickUp and Claude on the left; CI to the
+clock on the right), all on [demo data](scripts/demo): `scripts/demo/config.sh DIR` writes a
+wingbar settings file that runs every widget on made-up answers, for trying the menus without
+accounts.*
 
 | Widget | Shows | Menu | Needs |
 |---|---|---|---|
