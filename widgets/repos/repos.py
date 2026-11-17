@@ -175,7 +175,9 @@ def main():
     menu = [f"# GitHub\t{len(ok)} repo{'s' if len(ok) != 1 else ''} · traffic of 14 days"]
     top = max([(s.get("views") or {}).get("count", 0) for s in ok] + [1])
     order = sorted(stats, key=lambda s: -((s.get("views") or {}).get("count", 0) + 10 * (s.get("downloads") or 0)))
-    for s in order:
+    for i, s in enumerate(order):
+        if i:
+            menu.append("---")
         repo = s["repo"]
         url = f"https://{HOST}/{repo}"
         name = clean(repo.split("/", 1)[1], 30)
