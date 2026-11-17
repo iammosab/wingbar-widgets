@@ -19,6 +19,7 @@ accounts.*
 | [memory](widgets/memory) | RAM in use, coloured by memory pressure | Used, app/wired/compressed, swap, the apps using the most | — |
 | [mic](widgets/mic) | Whether the microphone is muted | Input device and volume, mute/unmute | — (a mute switch with the Command Line Tools) |
 | [network](widgets/network) | The connection in use: Wi-Fi or Ethernet | Every live link, Wi-Fi signal, rate and channel, router, VPNs, copy IP | — |
+| [repos](widgets/repos) | Your repos' release downloads and views: `↓55 · 209 views` | Per repo: stars, downloads (+today), views and clones of 14 days, referrers | `gh` |
 | [salat](widgets/salat) | The next prayer and time left (Morocco): `Asr · 1h05m` | Today's six times, optional "mark as prayed" | `python3` |
 
 ## Install

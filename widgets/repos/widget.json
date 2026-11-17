@@ -1,0 +1,11 @@
+{
+  "repos": {
+    "type": "script",
+    "command": "WINGBAR_REPOS=\"owner/repo\" bash ~/.config/wingbar/widgets/repos/repos.sh",
+    "every": "5m",
+    "timeout": "40s",
+    "icon": "chart.line.uptrend.xyaxis",
+    "levels": { "ok": "text", "up": "green" },
+    "menuOn": "hover"
+  }
+}
