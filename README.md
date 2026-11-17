@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/iammosab/wingbar/main/assets/brand/header-dark.png">
+    <img src="https://raw.githubusercontent.com/iammosab/wingbar/main/assets/brand/header-light.png" alt="wingbar" width="360">
+  </picture>
+</p>
+
 # wingbar-widgets
 
 Widgets for [wingbar](https://github.com/iammosab/wingbar), the light native macOS status bar.
